@@ -1,6 +1,6 @@
 # sharepoint-rag-helper
 
-The `sharepoint-rag-helper` project is a tool designed with Retrieval Augmented Generation scenarios based on SharePoint Online content.
+The `sharepoint-rag-helper` project is a tool designed to support Retrieval Augmented Generation scenarios based on SharePoint Online content.
 While focusing on PDF and DOCX documents now, it will be gradually extended to other types of content such as publishing pages.
 
 
