@@ -29,7 +29,7 @@ const marks = [
     { value: 1, label: '1', }, { value: 5, label: '5'}
   ];
 
-const Authenticated = () => {
+const Main = () => {
 
     const saved_keywords = window.sessionStorage.getItem('app_keywords');
     const saved_query = window.sessionStorage.getItem('app_query');
@@ -155,6 +155,7 @@ const Authenticated = () => {
                 />    
                 <TextField
                     sx={{ m: 1, width: '90%' }}
+                    multiline
                     id="query"
                     label="Query"
                     variant="standard"
@@ -221,4 +222,4 @@ const Authenticated = () => {
     </Box>);
   }
 
-export default Authenticated;
+export default Main;
