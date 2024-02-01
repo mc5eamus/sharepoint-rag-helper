@@ -19,5 +19,9 @@ export const apiConfig = {
 
 // Add here scopes for id token to be used at MS Identity Platform endpoints.
 export const loginRequest: PopupRequest = {
+    scopes: ["User.Read"]
+};
+
+export const apiRequest: PopupRequest = {
     scopes: ["api://[api-application-id-uri]/.default"]
 };

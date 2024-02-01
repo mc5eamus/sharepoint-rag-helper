@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMsal } from "@azure/msal-react";
-import { loginRequest, apiConfig } from "./config";
+import { apiRequest, apiConfig } from "./config";
 import { useEffect } from "react";
 import axios from 'axios';
 
@@ -57,7 +57,7 @@ const Main = () => {
         }
 
         const tokenResponse = await instance.acquireTokenSilent({
-            ...loginRequest,
+            ...apiRequest,
             account: account
         });
 
