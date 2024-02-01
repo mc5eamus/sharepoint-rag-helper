@@ -1,6 +1,5 @@
 import React, { useState, useEffect} from "react";
 
-
 import Card from '@mui/material/Card';
 import Box from '@mui/material/Box';
 import Grid from "@mui/material/Grid";
@@ -11,6 +10,8 @@ import Forward from '@mui/icons-material/Forward';
 import CardMedia from "@mui/material/CardMedia";
 import CardActions from "@mui/material/CardActions";
 import Button from "@mui/material/Button";
+
+import { apiConfig } from "./config";
 
 interface ResultGridProps {
     results: any[];
@@ -53,7 +54,7 @@ const ResultGrid:React.FC<ResultGridProps> = ({results, onSelected, onQuery, onV
                     style={{ cursor: 'pointer' }}
                     onClick={() => onSelected(result)}
                     sx={{ width: 200, height: 200 }}
-                    image={"http://localhost:8085/api/media/" + result.snapshot}/>
+                    image={apiConfig.baseUri+"/media/" + result.snapshot}/>
                 }
                 </Card></Grid>})
 
