@@ -1,0 +1,15 @@
+azure-identity
+azure-storage-blob
+azure-messaging-webpubsubservice
+azure-monitor-opentelemetry
+fastapi
+openai
+opencv-python
+PyMuPDF
+PyPDF2
+python-dateutil
+python-dotenv
+python-docx
+requests
+tiktoken
+uvicorn
