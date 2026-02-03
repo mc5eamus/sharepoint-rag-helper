@@ -1,0 +1,471 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "8593637427332087811"
+    }
+  },
+  "parameters": {
+    "project": {
+      "type": "string",
+      "defaultValue": "sharepointrag"
+    },
+    "prefix": {
+      "type": "string",
+      "defaultValue": "mgr"
+    },
+    "salt": {
+      "type": "string",
+      "defaultValue": "01"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[format('{0}{1}{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "appInsightsName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "logAnalyticsName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "searchServiceName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "webPubSubServiceName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "containerRegistryName": {
+      "type": "string",
+      "defaultValue": "[format('{0}{1}{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "managedIdentityName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-{2}-identity', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "containerAppsEnvironmentName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-{2}-env', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "backendContainerAppName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-backend-{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "frontendContainerAppName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-{1}-frontend-{2}', parameters('prefix'), parameters('project'), parameters('salt'))]"
+    },
+    "webPubSubSku": {
+      "type": "string",
+      "defaultValue": "Free_F1",
+      "allowedValues": [
+        "Standard_S1",
+        "Free_F1"
+      ],
+      "metadata": {
+        "description": "SKU name"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    }
+  },
+  "variables": {
+    "imagesContainerName": "sharepoint-images",
+    "fileContentIndexName": "sharepoint-files"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}/{2}', parameters('storageAccountName'), 'default', variables('imagesContainerName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2023-01-01",
+      "name": "[format('{0}/{1}', parameters('storageAccountName'), 'default')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "accessTier": "Hot"
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[parameters('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "Flow_Type": "Redfield",
+        "Request_Source": "IbizaAIExtension",
+        "RetentionInDays": 30,
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]",
+        "IngestionMode": "LogAnalytics",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2021-12-01-preview",
+      "name": "[parameters('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "pergb2018"
+        },
+        "retentionInDays": 30,
+        "features": {
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        },
+        "workspaceCapping": {
+          "dailyQuotaGb": -1
+        },
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Search/searchServices",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('searchServiceName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "basic"
+      },
+      "properties": {
+        "replicaCount": 1,
+        "partitionCount": 1,
+        "publicNetworkAccess": "enabled",
+        "semanticSearch": "disabled"
+      }
+    },
+    {
+      "type": "Microsoft.SignalRService/webPubSub",
+      "apiVersion": "2023-02-01",
+      "name": "[parameters('webPubSubServiceName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "capacity": 1,
+        "name": "[parameters('webPubSubSku')]"
+      },
+      "identity": {
+        "type": "None"
+      },
+      "properties": {
+        "disableAadAuth": false,
+        "disableLocalAuth": false,
+        "liveTraceConfiguration": {
+          "categories": [
+            {
+              "enabled": "false",
+              "name": "ConnectivityLogs"
+            },
+            {
+              "enabled": "false",
+              "name": "MessagingLogs"
+            }
+          ],
+          "enabled": "false"
+        },
+        "networkACLs": {
+          "defaultAction": "Deny",
+          "publicNetwork": {
+            "allow": [
+              "ServerConnection",
+              "ClientConnection",
+              "RESTAPI",
+              "Trace"
+            ]
+          }
+        },
+        "publicNetworkAccess": "Enabled",
+        "resourceLogConfiguration": {
+          "categories": [
+            {
+              "enabled": "true",
+              "name": "ConnectivityLogs"
+            },
+            {
+              "enabled": "true",
+              "name": "MessagingLogs"
+            }
+          ]
+        },
+        "tls": {
+          "clientCertEnabled": false
+        }
+      }
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[parameters('managedIdentityName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('containerRegistryName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Basic"
+      },
+      "properties": {
+        "adminUserEnabled": true,
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName'))]",
+      "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), 'acrpull')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')]",
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), '2023-01-31').principalId]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('containerAppsEnvironmentName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName')), '2021-12-01-preview').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName')), '2021-12-01-preview').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('backendContainerAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 8085,
+            "allowInsecure": false,
+            "traffic": [
+              {
+                "latestRevision": true,
+                "weight": 100
+              }
+            ]
+          },
+          "registries": [
+            {
+              "server": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), '2023-07-01').loginServer]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+            }
+          ],
+          "secrets": [
+            {
+              "name": "indexer-apikey",
+              "value": "[listAdminKeys(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), '2023-11-01').primaryKey]"
+            },
+            {
+              "name": "indexer-manage-key",
+              "value": "[listAdminKeys(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), '2023-11-01').primaryKey]"
+            },
+            {
+              "name": "webpubsub-connection-string",
+              "value": "[listKeys(resourceId('Microsoft.SignalRService/webPubSub', parameters('webPubSubServiceName')), '2023-02-01').primaryConnectionString]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "backend",
+              "image": "[format('{0}/sharepoint-rag-backend:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), '2023-07-01').loginServer)]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "BLOB_CONNECTION_STRING",
+                  "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', parameters('storageAccountName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value, environment().suffixes.storage)]"
+                },
+                {
+                  "name": "BLOB_CONTAINER_NAME",
+                  "value": "[variables('imagesContainerName')]"
+                },
+                {
+                  "name": "INDEXER_ENDPOINT",
+                  "value": "[format('https://{0}.search.windows.net', parameters('searchServiceName'))]"
+                },
+                {
+                  "name": "INDEXER_APIKEY",
+                  "secretRef": "indexer-apikey"
+                },
+                {
+                  "name": "INDEXER_INDEX",
+                  "value": "[variables('fileContentIndexName')]"
+                },
+                {
+                  "name": "INDEXER_MANAGE_KEY",
+                  "secretRef": "indexer-manage-key"
+                },
+                {
+                  "name": "WEBPUBSUB_CONNECTION_STRING",
+                  "secretRef": "webpubsub-connection-string"
+                },
+                {
+                  "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                  "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString]"
+                },
+                {
+                  "name": "DEBUG",
+                  "value": "False"
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 3
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
+        "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]",
+        "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]",
+        "[resourceId('Microsoft.SignalRService/webPubSub', parameters('webPubSubServiceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('frontendContainerAppName')]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')))]": {}
+        }
+      },
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 80,
+            "allowInsecure": false,
+            "traffic": [
+              {
+                "latestRevision": true,
+                "weight": 100
+              }
+            ]
+          },
+          "registries": [
+            {
+              "server": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), '2023-07-01').loginServer]",
+              "identity": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "frontend",
+              "image": "[format('{0}/sharepoint-rag-frontend:latest', reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), '2023-07-01').loginServer)]",
+              "resources": {
+                "cpu": "[json('0.25')]",
+                "memory": "0.5Gi"
+              }
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 3
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppsEnvironmentName'))]",
+        "[resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName'))]",
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "deployEnvironment": {
+      "type": "string",
+      "value": "[join(createArray('OPENAI_ENDPOINT=[Endpoint URL for  Azure OpenAI service]', 'OPENAI_APIKEY=[API key for Azure OpenAI service]', 'OPENAI_EMBEDDINGS_MODEL=[Model name for text embedding in Azure OpenAI - must be ada or compatible]', 'OPENAI_COMPLETIONS_MODEL_VISUAL=[Model name for multimodal completions in OpenAI]', 'OPENAI_COMPLETIONS_MODEL_TEXT=[Model name for text completions in OpenAI]', 'CLIENT_ID=[ID of the client app]', 'CLIENT_SECRET=[Client secret]', 'TENANT_ID=[Tenant ID]', format('BLOB_CONNECTION_STRING={0}', format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', parameters('storageAccountName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value, environment().suffixes.storage)), format('BLOB_CONTAINER_NAME={0}', variables('imagesContainerName')), format('INDEXER_ENDPOINT=https://{0}.search.windows.net', parameters('searchServiceName')), format('INDEXER_APIKEY={0}', listAdminKeys(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), '2023-11-01').primaryKey), format('INDEXER_INDEX={0}', variables('fileContentIndexName')), format('INDEXER_MANAGE_KEY={0}', listAdminKeys(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), '2023-11-01').primaryKey), format('WEBPUBSUB_CONNECTION_STRING={0}', listKeys(resourceId('Microsoft.SignalRService/webPubSub', parameters('webPubSubServiceName')), '2023-02-01').primaryConnectionString), format('APPLICATIONINSIGHTS_CONNECTION_STRING={0}', reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString), 'DEBUG=False'), '\n')]"
+    },
+    "containerRegistryLoginServer": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), '2023-07-01').loginServer]"
+    },
+    "containerRegistryName": {
+      "type": "string",
+      "value": "[parameters('containerRegistryName')]"
+    },
+    "managedIdentityClientId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName')), '2023-01-31').clientId]"
+    },
+    "backendUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('backendContainerAppName')), '2023-05-01').configuration.ingress.fqdn)]"
+    },
+    "frontendUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('frontendContainerAppName')), '2023-05-01').configuration.ingress.fqdn)]"
+    }
+  }
+}

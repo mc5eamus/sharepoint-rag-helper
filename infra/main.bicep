@@ -7,6 +7,12 @@ param appInsightsName string = '${prefix}-${project}-${salt}'
 param logAnalyticsName string = '${prefix}-${project}-${salt}'
 param searchServiceName string = '${prefix}-${project}-${salt}'
 param webPubSubServiceName string = '${prefix}-${project}-${salt}'
+param containerRegistryName string = '${prefix}${project}${salt}'
+param managedIdentityName string = '${prefix}-${project}-${salt}-identity'
+param containerAppsEnvironmentName string = '${prefix}-${project}-${salt}-env'
+param backendContainerAppName string = '${prefix}-${project}-backend-${salt}'
+param frontendContainerAppName string = '${prefix}-${project}-frontend-${salt}'
+
 @description('SKU name')
 @allowed([
   'Standard_S1'
@@ -152,6 +158,203 @@ var pubSubConnectionString = webPubSubService.listKeys().primaryConnectionString
 
 //var searchQueryKey = searchService.listQueryKeys().value[0].key
 
+// User Managed Identity
+resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: managedIdentityName
+  location: location
+}
+
+// Container Registry
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: containerRegistryName
+  location: location
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+// Grant ACR Pull permission to managed identity
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerRegistry.id, managedIdentity.id, 'acrpull')
+  scope: containerRegistry
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull role
+    principalId: managedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Container Apps Environment
+resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2023-05-01' = {
+  name: containerAppsEnvironmentName
+  location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalytics.properties.customerId
+        sharedKey: logAnalytics.listKeys().primarySharedKey
+      }
+    }
+  }
+}
+
+// Backend Container App
+resource backendContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
+  name: backendContainerAppName
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${managedIdentity.id}': {}
+    }
+  }
+  properties: {
+    managedEnvironmentId: containerAppsEnvironment.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 8085
+        allowInsecure: false
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+      }
+      registries: [
+        {
+          server: containerRegistry.properties.loginServer
+          identity: managedIdentity.id
+        }
+      ]
+      secrets: [
+        {
+          name: 'indexer-apikey'
+          value: searchAdminKey
+        }
+        {
+          name: 'indexer-manage-key'
+          value: searchAdminKey
+        }
+        {
+          name: 'webpubsub-connection-string'
+          value: pubSubConnectionString
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'backend'
+          image: '${containerRegistry.properties.loginServer}/sharepoint-rag-backend:latest'
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+          env: [
+            {
+              name: 'BLOB_CONNECTION_STRING'
+              value: storageConnectionString
+            }
+            {
+              name: 'BLOB_CONTAINER_NAME'
+              value: imagesContainerName
+            }
+            {
+              name: 'INDEXER_ENDPOINT'
+              value: 'https://${searchServiceName}.search.windows.net'
+            }
+            {
+              name: 'INDEXER_APIKEY'
+              secretRef: 'indexer-apikey'
+            }
+            {
+              name: 'INDEXER_INDEX'
+              value: fileContentIndexName
+            }
+            {
+              name: 'INDEXER_MANAGE_KEY'
+              secretRef: 'indexer-manage-key'
+            }
+            {
+              name: 'WEBPUBSUB_CONNECTION_STRING'
+              secretRef: 'webpubsub-connection-string'
+            }
+            {
+              name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+              value: appInsights.properties.ConnectionString
+            }
+            {
+              name: 'DEBUG'
+              value: 'False'
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 3
+      }
+    }
+  }
+}
+
+// Frontend Container App
+resource frontendContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
+  name: frontendContainerAppName
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${managedIdentity.id}': {}
+    }
+  }
+  properties: {
+    managedEnvironmentId: containerAppsEnvironment.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 80
+        allowInsecure: false
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+      }
+      registries: [
+        {
+          server: containerRegistry.properties.loginServer
+          identity: managedIdentity.id
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'frontend'
+          image: '${containerRegistry.properties.loginServer}/sharepoint-rag-frontend:latest'
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 3
+      }
+    }
+  }
+}
+
 output deployEnvironment string = join([
     'OPENAI_ENDPOINT=[Endpoint URL for  Azure OpenAI service]'
     'OPENAI_APIKEY=[API key for Azure OpenAI service]'
@@ -171,3 +374,9 @@ output deployEnvironment string = join([
     'APPLICATIONINSIGHTS_CONNECTION_STRING=${appInsights.properties.ConnectionString}'
     'DEBUG=False'
   ], '\n')
+
+output containerRegistryLoginServer string = containerRegistry.properties.loginServer
+output containerRegistryName string = containerRegistry.name
+output managedIdentityClientId string = managedIdentity.properties.clientId
+output backendUrl string = 'https://${backendContainerApp.properties.configuration.ingress.fqdn}'
+output frontendUrl string = 'https://${frontendContainerApp.properties.configuration.ingress.fqdn}'

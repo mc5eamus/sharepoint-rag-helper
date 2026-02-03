@@ -18,3 +18,6 @@ out/
 data/
 .env
 *.db
+
+# Azure Developer CLI
+.azure/
