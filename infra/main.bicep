@@ -388,7 +388,7 @@ resource frontendContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
 }
 
 output deployEnvironment string = join([
-    'OPENAI_ENDPOINT=[Endpoint URL for  Azure OpenAI service]'
+    'OPENAI_ENDPOINT=[Endpoint URL for Azure OpenAI service]'
     'OPENAI_APIKEY=[API key for Azure OpenAI service]'
     'OPENAI_EMBEDDINGS_MODEL=[Model name for text embedding in Azure OpenAI - must be ada or compatible]'
     'OPENAI_COMPLETIONS_MODEL_VISUAL=[Model name for multimodal completions in OpenAI]'
