@@ -5,6 +5,17 @@ While focusing on PDF and DOCX documents now, it will be gradually extended to o
 
 
 ## Prerequisites and deployment
+
+### Quick Start with Azure Container Apps (Recommended)
+
+For production deployments, we recommend using Azure Container Apps. See the [Deployment Guide](DEPLOYMENT.md) for detailed instructions on deploying to Azure using either:
+- **Azure Developer CLI (azd)** - Automated deployment with a single command
+- **Azure CLI** - Step-by-step deployment with more control
+
+The deployment includes all required infrastructure: Container Apps, Container Registry, Storage, AI Search, Web PubSub, and monitoring.
+
+### Manual Infrastructure Setup (Alternative)
+
 There's still a bunch of manual steps, but I'll see to automate it peu à peu. So far I mostly run it locally for demo purposes but there's a Dockerfile to build a functional backend.
 
 ### Infrastructure 

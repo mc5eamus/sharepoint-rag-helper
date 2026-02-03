@@ -259,6 +259,38 @@ resource backendContainerApp 'Microsoft.App/containerApps@2023-05-01' = {
           }
           env: [
             {
+              name: 'OPENAI_ENDPOINT'
+              value: '[REQUIRED: Endpoint URL for Azure OpenAI service]'
+            }
+            {
+              name: 'OPENAI_APIKEY'
+              value: '[REQUIRED: API key for Azure OpenAI service]'
+            }
+            {
+              name: 'OPENAI_EMBEDDINGS_MODEL'
+              value: '[REQUIRED: Model name for text embedding in Azure OpenAI]'
+            }
+            {
+              name: 'OPENAI_COMPLETIONS_MODEL_VISUAL'
+              value: '[REQUIRED: Model name for multimodal completions in OpenAI]'
+            }
+            {
+              name: 'OPENAI_COMPLETIONS_MODEL_TEXT'
+              value: '[REQUIRED: Model name for text completions in OpenAI]'
+            }
+            {
+              name: 'CLIENT_ID'
+              value: '[REQUIRED: ID of the backend API app registration]'
+            }
+            {
+              name: 'CLIENT_SECRET'
+              value: '[REQUIRED: Client secret for backend API app registration]'
+            }
+            {
+              name: 'TENANT_ID'
+              value: '[REQUIRED: Azure AD Tenant ID]'
+            }
+            {
               name: 'BLOB_CONNECTION_STRING'
               value: storageConnectionString
             }

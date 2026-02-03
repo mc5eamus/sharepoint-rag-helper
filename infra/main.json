@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "8593637427332087811"
+      "templateHash": "18041167938940602588"
     }
   },
   "parameters": {
@@ -331,6 +331,38 @@
                 "memory": "1Gi"
               },
               "env": [
+                {
+                  "name": "OPENAI_ENDPOINT",
+                  "value": "[[REQUIRED: Endpoint URL for Azure OpenAI service]"
+                },
+                {
+                  "name": "OPENAI_APIKEY",
+                  "value": "[[REQUIRED: API key for Azure OpenAI service]"
+                },
+                {
+                  "name": "OPENAI_EMBEDDINGS_MODEL",
+                  "value": "[[REQUIRED: Model name for text embedding in Azure OpenAI]"
+                },
+                {
+                  "name": "OPENAI_COMPLETIONS_MODEL_VISUAL",
+                  "value": "[[REQUIRED: Model name for multimodal completions in OpenAI]"
+                },
+                {
+                  "name": "OPENAI_COMPLETIONS_MODEL_TEXT",
+                  "value": "[[REQUIRED: Model name for text completions in OpenAI]"
+                },
+                {
+                  "name": "CLIENT_ID",
+                  "value": "[[REQUIRED: ID of the backend API app registration]"
+                },
+                {
+                  "name": "CLIENT_SECRET",
+                  "value": "[[REQUIRED: Client secret for backend API app registration]"
+                },
+                {
+                  "name": "TENANT_ID",
+                  "value": "[[REQUIRED: Azure AD Tenant ID]"
+                },
                 {
                   "name": "BLOB_CONNECTION_STRING",
                   "value": "[format('DefaultEndpointsProtocol=https;AccountName={0};AccountKey={1};EndpointSuffix={2}', parameters('storageAccountName'), listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2023-01-01').keys[0].value, environment().suffixes.storage)]"
