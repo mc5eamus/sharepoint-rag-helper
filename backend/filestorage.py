@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from azure.storage.blob import ContainerClient, BlobSasPermissions, generate_blob_sas, BlobServiceClient, UserDelegationKey
 from azure.identity import DefaultAzureCredential
 
@@ -46,12 +46,12 @@ class FileStorage:
                 blob_name=blob_client.blob_name,
                 account_key=self.container_client.credential.account_key,
                 permission=BlobSasPermissions(read=True),
-                expiry= datetime.now(datetime.timezone.utc) + timedelta(hours=1)
+                expiry= datetime.now(timezone.utc) + timedelta(hours=1)
             )
         else:
             # Use user delegation SAS with managed identity
             # Get user delegation key
-            key_start_time = datetime.now(datetime.timezone.utc) - timedelta(minutes=5)
+            key_start_time = datetime.now(timezone.utc) - timedelta(minutes=5)
             key_expiry_time = key_start_time + timedelta(hours=1)
             
             user_delegation_key = self.blob_service_client.get_user_delegation_key(
@@ -59,16 +59,13 @@ class FileStorage:
                 key_expiry_time=key_expiry_time
             )
             
-            # Generate user delegation SAS token
-            from azure.storage.blob import generate_blob_sas
-            
             sas_token = generate_blob_sas(
                 account_name=self.storage_account_name,
                 container_name=self.container_client.container_name,
                 blob_name=blob_client.blob_name,
                 user_delegation_key=user_delegation_key,
                 permission=BlobSasPermissions(read=True),
-                expiry=datetime.now(datetime.timezone.utc) + timedelta(hours=1)
+                expiry=datetime.now(timezone.utc) + timedelta(hours=1)
             )
         
         # build the url
