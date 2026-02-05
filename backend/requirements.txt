@@ -1,4 +1,5 @@
 azure-identity
+azure-search-documents>=11.4.0
 azure-storage-blob
 azure-messaging-webpubsubservice
 azure-monitor-opentelemetry

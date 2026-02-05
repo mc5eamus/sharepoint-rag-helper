@@ -1,6 +1,6 @@
-param project string = 'sharepointrag'
+param project string = 'sprag'
 param prefix string = 'mgr'
-param salt string = '01'
+param salt string = '02'
 
 param storageAccountName string = '${prefix}${project}${salt}'
 param appInsightsName string = '${prefix}-${project}-${salt}'

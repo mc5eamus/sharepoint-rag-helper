@@ -30,14 +30,21 @@ setup_telemetry()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    get_logger().info("Ensuring index exists...")
-    ensure_index_exists(
-        os.getenv("INDEXER_ENDPOINT"),
-        os.getenv("INDEXER_INDEX"),
-        os.getenv("INDEXER_MANAGE_KEY"),
-        os.getenv("OPENAI_ENDPOINT"),
-        os.getenv("OPENAI_APIKEY"),
-        os.getenv("OPENAI_EMBEDDINGS_MODEL") )
+    try:
+        get_logger().info("Ensuring index exists...")
+        # Only try to ensure index exists if we have the required environment variables
+        if all(os.getenv(var) for var in ["INDEXER_ENDPOINT", "INDEXER_INDEX", "INDEXER_MANAGE_KEY", "OPENAI_ENDPOINT", "OPENAI_APIKEY"]):
+            ensure_index_exists(
+                os.getenv("INDEXER_ENDPOINT"),
+                os.getenv("INDEXER_INDEX"),
+                os.getenv("INDEXER_MANAGE_KEY"),
+                os.getenv("OPENAI_ENDPOINT"),
+                os.getenv("OPENAI_APIKEY"),
+                os.getenv("OPENAI_EMBEDDINGS_MODEL") )
+        else:
+            get_logger().warning("Skipping index initialization - missing required environment variables")
+    except Exception as e:
+        get_logger().error(f"Failed to initialize index: {e}")
     yield
 
 app = FastAPI(lifespan=lifespan)
@@ -52,6 +59,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 #dapr_app = DaprApp(app)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -63,14 +75,13 @@ access_principal_delegated = ConfidentialClientApplication(
 
 orchestrator = SharePointRagOrchestrator(access_principal_delegated)
 
-storage = FileStorage(
-    storage_connection_string=os.getenv("BLOB_CONNECTION_STRING"), 
+storage = FileStorage( 
+    storage_account_name=os.getenv("BLOB_STORAGE_ACCOUNT_NAME"),
     container_name=os.getenv("BLOB_CONTAINER_NAME"))
 
 notification_hub = NotificationHub(os.getenv("WEBPUBSUB_CONNECTION_STRING"), 'hub')
 
 chat_completions = ChatCompletions(os.getenv("OPENAI_ENDPOINT"),
-    os.getenv("OPENAI_APIKEY"),
     os.getenv("OPENAI_COMPLETIONS_MODEL_TEXT"), 
     os.getenv("OPENAI_COMPLETIONS_MODEL_VISUAL"))
 
@@ -105,7 +116,7 @@ class SharePointSearchResult(BaseModel):
     lastModified: str
     title: Optional[str] = None
 
-@app.post("/api/suggestions")
+@app.post("/suggestions")
 async def suggestions_from_sharepoint(
     token: Annotated[str, Depends(oauth2_scheme)],
     item: SearchRequestItem):
@@ -124,7 +135,7 @@ async def suggestions_from_sharepoint(
 
         return await orchestrator.search(item.keywords, item.query, ctx, item.max_results)
 
-@app.post("/api/indexed")
+@app.post("/indexed")
 async def suggestions_from_index(
     token: Annotated[str, Depends(oauth2_scheme)],
     item: SearchRequestItem):
@@ -138,7 +149,7 @@ async def suggestions_from_index(
         activity.add_event(f"Looking for '{item.query}' in the index")
         return await orchestrator.search_indexed(item.query, ctx, item.max_results)
 
-@app.get("/api/media/{filename}", response_class=RedirectResponse, status_code=302)
+@app.get("/media/{filename}", response_class=RedirectResponse, status_code=302)
 async def media_file(filename: str, response: Response):
     """
     Returns a redirect to a media file from the storage account.
@@ -149,7 +160,7 @@ async def media_file(filename: str, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return None
     
-@app.get("/api/url/{filename}")
+@app.get("/url/{filename}")
 async def media_url(filename: str, response: Response):
     """
     Returns a URL to the media file including the SAS token.
@@ -160,7 +171,7 @@ async def media_url(filename: str, response: Response):
         response.status_code = status.HTTP_404_NOT_FOUND
         return None    
     
-@app.post("/api/comms/negotiate")
+@app.post("/comms/negotiate")
 async def get_notification_client_token(
     token: Annotated[str, Depends(oauth2_scheme)]):
     """
@@ -169,7 +180,7 @@ async def get_notification_client_token(
     """        
     return notification_hub.negotiate(get_user_id(token))
 
-@app.post("/api/indexed/item")
+@app.post("/indexed/item")
 async def ensure_index(
     token: Annotated[str, Depends(oauth2_scheme)],
     search_result: SharePointSearchResult):
@@ -182,7 +193,7 @@ async def ensure_index(
     return docid
 
 
-@app.post("/api/completions/chat")
+@app.post("/completions/chat")
 async def completions(
     token: Annotated[str, Depends(oauth2_scheme)],
     item: CompletionRequestItem):
@@ -214,9 +225,20 @@ async def completions(
     return result
 
 if __name__ == "__main__":
-    port = int(os.getenv('PORT', 8085))
-    host = os.getenv('HOST', "0.0.0.0")
-    if os.getenv('DEBUG', 'false').lower() == 'true':
-        uvicorn.run("app:app", host=host, port=port, reload=True)
-    else:
-        uvicorn.run(app, host=host, port=port)
+    try:
+        port = int(os.getenv('PORT', 8085))
+        host = os.getenv('HOST', "0.0.0.0")
+        
+        print(f"Starting FastAPI server on {host}:{port}")
+        print(f"Environment: {os.getenv('NODE_ENV', 'development')}")
+        print(f"Debug mode: {os.getenv('DEBUG', 'false')}")
+        
+        if os.getenv('DEBUG', 'false').lower() == 'true':
+            uvicorn.run("app:app", host=host, port=port, reload=True)
+        else:
+            uvicorn.run(app, host=host, port=port)
+    except Exception as e:
+        print(f"Failed to start server: {e}")
+        import traceback
+        traceback.print_exc()
+        exit(1)

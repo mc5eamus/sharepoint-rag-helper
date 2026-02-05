@@ -33,10 +33,13 @@ class Indexer:
 
         if credential is None:
             self.credential = DefaultAzureCredential()
+        else:
+            self.credential = credential
+        
         self.search_client = SearchClient(
             indexer_endpoint, 
             index_name, 
-            credential)
+            self.credential)
         
     @staticmethod
     def safe_id(namespace, id):
@@ -72,7 +75,8 @@ class Indexer:
         """
         Verifies if the given id is in the index. If file_last_modified is given, it is used to check if the index is up to date.
         """
-        
+        print("Checking if document is in index:", id)
+
         results = list(self.search_client.search(
             search_text="*",
             filter="documentId eq '" + id + "'",

@@ -1,18 +1,21 @@
 from openai import AsyncAzureOpenAI
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 class ChatCompletions:
     """
     A helper to call the OpenAI chat completions endpoint. 
     """
-    def __init__(self, api_endpoint, api_key, engine_text, engine_visual=None):
+    def __init__(self, api_endpoint, engine_text, engine_visual=None):
         self.engine_text = engine_text
         # assign engine_visual to self.engine_visual if not null, otherwise engine_text
         self.engine_visual = engine_text if engine_visual is None else engine_visual
+        
+        token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
 
         self.client = AsyncAzureOpenAI(
             azure_endpoint=api_endpoint,
-            api_key = api_key,
-            api_version = "2023-12-01-preview")
+            api_version = "2023-12-01-preview",
+            azure_ad_token_provider=token_provider)
 
 
     async def generate(self, prompt: str, text: str, image_url: str = None, max_tokens: int = 300):

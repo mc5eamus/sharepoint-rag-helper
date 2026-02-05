@@ -7,6 +7,7 @@ from embeddings import Embeddings
 from indexer import Indexer
 from drive import DriveFileFetcher
 from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 from msal import ConfidentialClientApplication
 from dateutil import parser
 from search import SharePointIndex
@@ -22,23 +23,23 @@ class SharePointRagOrchestrator:
 
         self.embeddings = Embeddings(
             os.getenv("OPENAI_ENDPOINT"),
-            os.getenv("OPENAI_APIKEY"),
             os.getenv("OPENAI_EMBEDDINGS_MODEL"))
 
         self.indexer = Indexer(
             os.getenv("INDEXER_ENDPOINT"),
             os.getenv("INDEXER_INDEX"),
             self.embeddings,
-            AzureKeyCredential(os.getenv("INDEXER_APIKEY")))
-        
+            DefaultAzureCredential() )
+
         self.storage = FileStorage( 
-            storage_connection_string=os.getenv("BLOB_CONNECTION_STRING"),
+            storage_account_name=os.getenv("BLOB_STORAGE_ACCOUNT_NAME"),
             container_name=os.getenv("BLOB_CONTAINER_NAME"))
 
         self.drive = DriveFileFetcher( app )
 
         self.notification_hub = NotificationHub(os.getenv("WEBPUBSUB_CONNECTION_STRING"), 'hub')
 
+        self.log = get_logger()
     async def ensure_document_in_index(self, search_object: dict, ctx: CallContext):
         intercom = NotificationChannel(self.notification_hub, ctx)
         try:
@@ -51,22 +52,26 @@ class SharePointRagOrchestrator:
     
     async def search(self, keywords: str, query: str, ctx: CallContext, max_results: int = 3):
         
-        log = get_logger()
-        log.info(f"Searching for '{keywords}' / '{query}'...")
+        self.log.info(f"Searching for '{keywords}' / '{query}'...")
 
         intercom = NotificationChannel(self.notification_hub, ctx)
         
         intercom.send(f"Asking sharepoint for '{keywords}'...")
         
+        self.log.info(f"Asking sharepoint for '{keywords}'...")
         result = self.sp_index.search(keywords, ctx, max_results)
+
+        self.log.info(f"Sharepoint returned {len(result)} results.")
 
         document_ids = []
         for r in result:
+            self.log.info(f"Processing search result: {r['title']} ({r['id']})")
             safe_id = await self.__ensure_document_in_index(r, ctx, intercom)
+            self.log.info(f"Document ensured in index: {safe_id}") 
             document_ids.append(safe_id)
 
         suggestions = list(self.indexer.get_from_index(query=query, ids=document_ids, k=max_results))
-
+               
         intercom.send(f"Found {len(suggestions)} indexed fragments.")
 
         return suggestions
@@ -74,7 +79,7 @@ class SharePointRagOrchestrator:
     
     async def search_indexed(self, query: str, ctx: CallContext, max_results: int = 3):
         
-        log = get_logger()
+        self.log.info(f"Searching indexed documents for '{query}'...")
 
         intercom = NotificationChannel(self.notification_hub, ctx)
         intercom.send("Searching indexed documents...")
@@ -122,12 +127,14 @@ class SharePointRagOrchestrator:
             
 
     async def __ensure_document_in_index(self, search_object: dict, ctx: CallContext, intercom:NotificationChannel):
-                
+
+        self.log.info(f"Ensuring document is in index: {search_object['title']} ({search_object['id']})")     
         safe_id = Indexer.safe_id(search_object["driveId"], search_object["id"])
         last_modified = parser.parse(search_object["lastModified"])
         
         if not self.indexer.is_in_index(safe_id, last_modified):
             doctitle = search_object["title"]
+            
             
             intercom.send(f"Found '{doctitle}' which is not in the index yet. Please bear with me, I'm indexing it...")
             
