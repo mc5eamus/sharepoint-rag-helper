@@ -104,6 +104,12 @@ class CompletionRequestItem(BaseModel):
     text: str
     image: Optional[str] = None
 
+class KeywordExtractionRequest(BaseModel):
+    """
+    Request to extract keywords from a search query using LLM.
+    """
+    query: str
+
 
 class SharePointSearchResult(BaseModel):
     """
@@ -192,6 +198,23 @@ async def ensure_index(
     docid = await orchestrator.ensure_index(search_result, ctx)
     return docid
 
+
+@app.post("/extract-keywords")
+async def extract_keywords(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    item: KeywordExtractionRequest):
+    """
+    Extract keywords from a search query using LLM.
+    """
+    ctx = CallContext.for_user(token)
+    intercom = NotificationChannel(notification_hub, ctx)
+    
+    try:
+        keywords = await chat_completions.extract_keywords(item.query)
+        return {"keywords": keywords}
+    except Exception as e:
+        intercom.send(f"Failed to extract keywords: {e}")
+        return {"keywords": "", "error": str(e)}
 
 @app.post("/completions/chat")
 async def completions(

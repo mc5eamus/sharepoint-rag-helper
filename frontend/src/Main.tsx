@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMsal } from "@azure/msal-react";
 import { apiRequest, apiConfig } from "./config";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import axios from 'axios';
 
 import { Box, TextField, Slider, Typography, Modal, AppBar, Toolbar, IconButton, CssBaseline, Drawer } from '@mui/material';
@@ -40,6 +40,14 @@ const Main = () => {
         max_results: 3, 
         results: [], 
         loading: false});
+    
+    const [keywordState, setKeywordState] = useState({
+        autoExtracted: '',
+        isManuallyEdited: false,
+        extracting: false
+    });
+    
+    const extractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [lightbox, setLightbox] = useState({ open: false, image: '' });
     const [socketUrl, setSocketUrl] = useState('')
@@ -63,6 +71,40 @@ const Main = () => {
 
         return tokenResponse.accessToken;
     }
+
+    const extractKeywords = async (query: string) => {
+        if (!query.trim()) {
+            setKeywordState(prev => ({ ...prev, extracting: false }));
+            return;
+        }
+
+        try {
+            setKeywordState(prev => ({ ...prev, extracting: true }));
+            const accessToken = await getAccessToken();
+            
+            const response = await axios.post(apiConfig.baseUri + '/extract-keywords', 
+                { query: query.trim() }, 
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            
+            if (response.data.keywords) {
+                const extractedKeywords = response.data.keywords.trim();
+                setKeywordState(prev => ({ 
+                    ...prev, 
+                    autoExtracted: extractedKeywords,
+                    extracting: false 
+                }));
+                
+                // Only update keywords field if user hasn't manually edited it
+                if (!keywordState.isManuallyEdited) {
+                    setSearchState(prev => ({ ...prev, keywords: extractedKeywords }));
+                }
+            }
+        } catch (error) {
+            setKeywordState(prev => ({ ...prev, extracting: false }));
+            // Error notifications are handled by the backend via WebSocket
+        }
+    };
 
     const bootstrap = async () => {
         const accessToken = await getAccessToken();
@@ -128,6 +170,37 @@ const Main = () => {
             bootstrap();
         }
     }, [socketUrl]);
+    
+    // Debounced keyword extraction when query changes
+    useEffect(() => {
+        if (extractionTimeoutRef.current) {
+            clearTimeout(extractionTimeoutRef.current);
+        }
+        
+        if (searchState.query.trim()) {
+            extractionTimeoutRef.current = setTimeout(() => {
+                extractKeywords(searchState.query);
+            }, 1000);
+        }
+        
+        return () => {
+            if (extractionTimeoutRef.current) {
+                clearTimeout(extractionTimeoutRef.current);
+            }
+        };
+    }, [searchState.query]);
+    
+    // Detect manual keyword edits
+    const handleKeywordsChange = (value: string) => {
+        setSearchState(prev => ({ ...prev, keywords: value }));
+        
+        // Check if this is a manual edit (different from auto-extracted)
+        if (keywordState.autoExtracted && value !== keywordState.autoExtracted) {
+            setKeywordState(prev => ({ ...prev, isManuallyEdited: true }));
+        } else if (value === keywordState.autoExtracted) {
+            setKeywordState(prev => ({ ...prev, isManuallyEdited: false }));
+        }
+    };
 
     
     return ( <Box sx={{ display:'flex'}}>
@@ -147,20 +220,26 @@ const Main = () => {
 
                 <TextField
                     sx={{ m: 1, width: '90%' }}
-                    id="keywords"
-                    label="Keywords"
-                    variant="standard"
-                    value={searchState.keywords} // Set the value of the text field
-                    onChange={(e) => setSearchState({...searchState, keywords: e.target.value})} // Update the state when the value changes
-                />    
-                <TextField
-                    sx={{ m: 1, width: '90%' }}
                     multiline
                     id="query"
                     label="Query"
                     variant="standard"
                     value={searchState.query} // Set the value of the text field
                     onChange={(e) => setSearchState({...searchState, query: e.target.value})} // Update the state when the value changes
+                />
+                <TextField
+                    sx={{ m: 1, width: '90%' }}
+                    id="keywords"
+                    label="Keywords"
+                    variant="standard"
+                    value={searchState.keywords}
+                    onChange={(e) => handleKeywordsChange(e.target.value)}
+                    helperText={
+                        keywordState.extracting ? "Extracting keywords..." :
+                        keywordState.isManuallyEdited ? "Manually edited" :
+                        keywordState.autoExtracted ? "Auto-extracted (edit to override)" : ""
+                    }
+                    disabled={keywordState.extracting}
                 />
                 <Typography gutterBottom>Max results</Typography>
                 <Slider sx={{ m: 1, width: '90%' }} defaultValue={searchState.max_results}

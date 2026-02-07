@@ -41,3 +41,27 @@ class ChatCompletions:
             max_tokens=max_tokens,
             )
         return response.choices[0].message.content
+    
+    async def extract_keywords(self, query: str, max_tokens: int = 50):
+        """
+        Extract relevant search keywords from a user query.
+        """
+        prompt = f"Extract 3-5 relevant search keywords from this query that would be useful for finding documents in SharePoint. Return only the keywords separated by spaces, no explanations or formatting. Query: {query}"
+        
+        response = await self.client.chat.completions.create(
+            model=self.engine_text,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant that extracts search keywords from user queries. Return only the keywords separated by spaces."
+                },
+                {
+                    "role": "user", 
+                    "content": prompt
+                }
+            ],
+            max_tokens=max_tokens,
+            temperature=0.3
+        )
+        
+        return response.choices[0].message.content.strip()
