@@ -5,8 +5,10 @@ import { IPublicClientApplication } from "@azure/msal-browser";
 import { loginRequest } from "./config";
 import { useEffect } from "react";
 
+import { ThemeProvider, CssBaseline } from '@mui/material';
 import Button from '@mui/material/Button';
 import LoginIcon from '@mui/icons-material/Login';
+import theme from './theme';
 
 type AppProps = {
   pca: IPublicClientApplication;
@@ -32,19 +34,21 @@ function LoginComponent () {
 function App({ pca }: AppProps) {
 
   return (
-    <MsalProvider instance={pca}>
-
-    <div className="App">
-      <header className="App-header">
-        <AuthenticatedTemplate>
-          <Main/>
-        </AuthenticatedTemplate>
-        <UnauthenticatedTemplate>
-          <LoginComponent/>
-        </UnauthenticatedTemplate>
-      </header>
-    </div>
-    </MsalProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <MsalProvider instance={pca}>
+        <div className="App">
+          <header className="App-header">
+            <AuthenticatedTemplate>
+              <Main/>
+            </AuthenticatedTemplate>
+            <UnauthenticatedTemplate>
+              <LoginComponent/>
+            </UnauthenticatedTemplate>
+          </header>
+        </div>
+      </MsalProvider>
+    </ThemeProvider>
   );
 }
 

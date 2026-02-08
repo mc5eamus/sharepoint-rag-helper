@@ -31,7 +31,7 @@ const ResultGrid:React.FC<ResultGridProps> = ({results, onSelected, onQuery, onV
     return (
             <Grid container spacing={4}>
                 { state.items.map((result: any) => {
-                    return <Grid item xs={4} key={result.id} >
+                    return <Grid size={{ xs: 12, sm: 6, md: 4 }} key={result.id} >
                         <Card variant="outlined" sx={{ display: 'flex' }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         <CardContent>
