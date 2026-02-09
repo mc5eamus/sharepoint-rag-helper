@@ -3,7 +3,6 @@ import Main from './Main';
 import { MsalProvider, AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
 import { IPublicClientApplication } from "@azure/msal-browser";
 import { loginRequest } from "./config";
-import { useEffect } from "react";
 
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import Button from '@mui/material/Button';
@@ -15,20 +14,15 @@ type AppProps = {
 };
 
 function LoginComponent () {
-  const { instance, inProgress } = useMsal();
+  const { instance } = useMsal();
 
-  useEffect(() => {
-  }, [inProgress, instance]);
-
-  const handleLogin = (loginType: string) => {
-      if (loginType === "popup") {
-          instance.loginPopup(loginRequest);
-      } else if (loginType === "redirect") {
-          instance.loginRedirect(loginRequest);
-      }
+  const handleLogin = () => {
+      instance.loginRedirect(loginRequest).catch((error) => {
+          console.error("Login failed:", error);
+      });
   }
 
-  return <Button variant='contained' endIcon={<LoginIcon />} onClick={() => handleLogin("popup")}>sign in</Button>;
+  return <Button variant='contained' endIcon={<LoginIcon />} onClick={handleLogin}>sign in</Button>;
 };
 
 function App({ pca }: AppProps) {

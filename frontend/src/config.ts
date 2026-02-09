@@ -14,7 +14,7 @@ export const msalConfig: Configuration = {
         postLogoutRedirectUri: getEnvVar('VITE_MSAL_POST_LOGOUT_REDIRECT_URI', '/')
     },
     system: {
-        allowNativeBroker: false // Disables WAM Broker
+        allowPlatformBroker: false // Disables WAM Broker
     }
 };
 
